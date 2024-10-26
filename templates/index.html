@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tablero Kanban</title>
+  <style>
+    /* Estilos básicos para el tablero Kanban */
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    .task-input-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .new-task-input {
+      padding: 10px;
+      width: 300px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+
+    .add-task-btn {
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .kanban-board {
+      display: flex;
+      gap: 20px;
+      padding: 20px;
+      max-width: 1200px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .kanban-column {
+      background-color: #ffffff;
+      border-radius: 8px;
+      padding: 15px;
+      width: 300px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .kanban-column h2 {
+      text-align: center;
+      color: #333;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+
+    .kanban-items {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .kanban-item {
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 14px;
+      color: #333;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: background-color 0.3s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .kanban-item.todo { background-color: #8a2323; } /* Blanco para "Tasks-To Do" */
+    .kanban-item.in-progress { background-color: #19752f; } /* Verde para "In Progress" */
+    .kanban-item.done { background-color: #e2a345; } /* Naranja para "Done" */
+
+    .kanban-item .delete-btn,
+    .kanban-item .edit-btn {
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 2px 5px;
+      cursor: pointer;
+      margin-left: 5px;
+    }
+    
+    .kanban-item .edit-btn {
+      background: #ffc107;
+    }
+
+    .move-btn {
+      padding: 2px 10px;
+      font-size: 12px;
+      margin: 2px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+    }
+
+    .left-btn { background-color: #f0ad4e; color: white; } /* Flecha izquierda */
+    .right-btn { background-color: #5bc0de; color: white; } /* Flecha derecha */
+  </style>
+</head>
+<body>
+  <h1>Tablero Kanban</h1>
+
+  <div class="task-input-container">
+    <input type="text" id="newTaskInput" class="new-task-input" placeholder="Nueva tarea" />
+    <button class="add-task-btn" onclick="addTask()">Agregar Tarea</button>
+  </div>
+
+  <div class="kanban-board">
+    <div class="kanban-column" data-status="tasksTodo">
+      <h2>Tasks-To Do</h2>
+      <div class="kanban-items" id="tasksTodo"></div>
+    </div>
+    <div class="kanban-column" data-status="inProgress">
+      <h2>In Progress</h2>
+      <div class="kanban-items" id="inProgress"></div>
+    </div>
+    <div class="kanban-column" data-status="done">
+      <h2>Done</h2>
+      <div class="kanban-items" id="done"></div>
+    </div>
+  </div>
+
+  <script>
+    // Cargar las tareas de la base de datos al cargar la página
+    async function loadTasks() {
+      const response = await fetch('/tasks');
+      const tasks = await response.json();
+      tasks.forEach(task => {
+        addTaskToColumn(task);
+      });
+    }
+
+    // Función para agregar una tarea a una columna específica
+    function addTaskToColumn(task) {
+      const column = document.getElementById(task.status);
+      const taskElement = document.createElement("div");
+      taskElement.className = `kanban-item ${task.status}`;
+      taskElement.id = task.id;
+      taskElement.innerHTML = `
+        <span>${task.title}</span>
+        <div>
+          <button class="edit-btn" onclick="editTask('${task.id}')">Editar</button>
+          <button class="delete-btn" onclick="deleteTask('${task.id}')">X</button>
+        </div>
+        <div>
+          <button class="move-btn left-btn" onclick="moveTask('${task.id}', 'left')">&larr;</button>
+          <button class="move-btn right-btn" onclick="moveTask('${task.id}', 'right')">&rarr;</button>
+        </div>
+      `;
+      column.appendChild(taskElement);
+    }
+
+    // Función para agregar una nueva tarea
+    async function addTask() {
+      const title = document.getElementById('newTaskInput').value;
+      if (!title) return;
+      
+      const response = await fetch('/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title })
+      });
+      const newTask = await response.json();
+      addTaskToColumn({ id: newTask.id, title, status: 'tasksTodo' });
+      document.getElementById('newTaskInput').value = '';
+    }
+
+    // Función para eliminar una tarea
+    async function deleteTask(id) {
+      await fetch(`/tasks/${id}`, { method: 'DELETE' });
+      document.getElementById(id).remove();
+    }
+
+    // Función para editar una tarea
+    async function editTask(id) {
+      const newTitle = prompt("Edita el título de la tarea:");
+      if (!newTitle) return;
+
+      await fetch(`/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle })
+      });
+
+      document.getElementById(id).querySelector("span").innerText = newTitle;
+    }
+
+    // Función para mover la tarea entre columnas
+    async function moveTask(id, direction) {
+      const taskElement = document.getElementById(id);
+      const currentStatus = taskElement.parentNode.id;
+      let newStatus;
+
+      if (direction === 'right') {
+        newStatus = currentStatus === 'tasksTodo' ? 'inProgress' : 'done';
+      } else if (direction === 'left') {
+        newStatus = currentStatus === 'done' ? 'inProgress' : 'tasksTodo';
+      }
+
+      if (newStatus) {
+        await fetch(`/tasks/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+        
+        taskElement.classList.remove('todo', 'in-progress', 'done'); // Eliminar clases anteriores
+        taskElement.classList.add(newStatus); // Agregar clase de nuevo estado
+        document.getElementById(newStatus).appendChild(taskElement); // Mover la tarea a la nueva columna
+      }
+    }
+
+    // Llama a loadTasks para cargar las tareas al iniciar
+    loadTasks();
+  </script>
+</body>
+</html>
